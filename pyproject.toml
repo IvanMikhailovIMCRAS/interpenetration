@@ -10,6 +10,7 @@ python = "^3.10"
 sfbox-api = {git = "https://github.com/IvanMikhailovIMCRAS/sfbox_api.git"}
 matplotlib = "^3.10.0"
 msgpack = "^1.1.0"
+scipy = "^1.15.2"
 
 
 [tool.poetry.group.dev.dependencies]
