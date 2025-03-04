@@ -1,5 +1,4 @@
 from typing import Callable, Tuple
-
 import numpy as np
 
 
@@ -54,7 +53,9 @@ class MidPoint:
         self.K1 = 3.0 / 8.0 * np.pi**2 / N1**2
         self.K2 = 3.0 / 8.0 * np.pi**2 / N2**2
         self.D = 0.0
-
+        self.H1 = (np.pi/2)**(-2/3)*N1*sigma1**(1/3)
+        self.H2 = (np.pi/2)**(-2/3)*N2*sigma2**(1/3)
+    
     def target_func(self, z: float) -> float:
         """Intent function for z_mean finding
 
@@ -85,13 +86,19 @@ class MidPoint:
         """
         self.D = D
         z_m = func_zeros(0.0, D - 1e-7, self.target_func)
-        phi_m = 2 - 2 * (1 - self.N1 * self.sigma1 / z_m ^ 2) * np.exp(
-            self.K1 * z_m ^ 2
-        )
+
+        if D > self.H1+self.H2:
+            phi_m = 0.0
+        elif D <= self.N1*self.sigma1+self.N1*self.sigma1:
+            phi_m = 1.0
+        else:
+            phi_m = 1.0 - (1.0 - self.N1 * self.sigma1 / z_m) * np.exp(
+                self.K1 * z_m**2
+            )
         return (z_m, phi_m)
 
 
 if __name__ == "__main__":
     m_p = MidPoint(180, 0.1, 20, 0.1)
 
-    print(m_p.calc(51))
+    print(m_p.calc(1))
