@@ -45,6 +45,7 @@ def frame_model(N1: int, N2: int, sigma1: float, sigma2: float, D: int) -> Frame
     sys = Sys()
 
     frame = Frame(lat, sys, mols, mons)
+    frame.text += "sys : name : overflow_protection : true"
     frame.run()
 
     return frame

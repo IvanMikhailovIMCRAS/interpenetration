@@ -1,6 +1,10 @@
-from typing import Callable, Tuple
+from typing import Callable, List, Tuple
 
 import numpy as np
+from scipy.integrate import quad
+from scipy.optimize import fsolve, minimize
+
+MINVAL = 1e-7
 
 
 def func_zeros(
@@ -66,8 +70,24 @@ class MidPoint:
         self.K1 = 3.0 / 8.0 * np.pi**2 / N1**2
         self.K2 = 3.0 / 8.0 * np.pi**2 / N2**2
         self.D = 0.0
-        self.H1 = (np.pi / 2) ** (-2 / 3) * N1 * sigma1 ** (1 / 3)
-        self.H2 = (np.pi / 2) ** (-2 / 3) * N2 * sigma2 ** (1 / 3)
+        self.H1 = fsolve(
+            lambda H: quad(
+                lambda z: (1.0 - np.exp(-1.5 * (np.pi / 2 / N1) ** 2 * (H**2 - z**2))),
+                0.0,
+                H,
+            )[0]
+            - N1 * sigma1,
+            2.0 * N1 * sigma1,
+        )[0]
+        self.H2 = fsolve(
+            lambda H: quad(
+                lambda z: (1.0 - np.exp(-1.5 * (np.pi / 2 / N2) ** 2 * (H**2 - z**2))),
+                0.0,
+                H,
+            )[0]
+            - N2 * sigma2,
+            2.0 * N2 * sigma2,
+        )[0]
 
     def _target_func(self, z: float) -> float:
         """Intent function for z_mean finding
@@ -98,21 +118,42 @@ class MidPoint:
             Tuple[float, float]: z_mean and phi_mean values
         """
         self.D = D
-        z_m = func_zeros(0.0, D - 1e-7, self._target_func)
+        z_m = func_zeros(0.0, D - MINVAL, self._target_func)
 
-        if D > self.H1 + self.H2:
+        if D > (self.H1 + self.H2):
             phi_m = 0.0
-        elif D <= self.N1 * self.sigma1 + self.N1 * self.sigma1:
+        elif D <= (self.N1 * self.sigma1 + self.N1 * self.sigma1):
             phi_m = 1.0
         else:
             phi_m = 1.0 - (1.0 - self.N1 * self.sigma1 / z_m) * np.exp(self.K1 * z_m**2)
         return (z_m, phi_m)
 
+    def u1(self, z: np.ndarray) -> np.ndarray:
+        return 1.5 * (np.pi / 2 / self.N1) ** 2 * (self.H1**2 - z**2)
+
+    def u2(self, z: np.ndarray) -> np.ndarray:
+        return 1.5 * (np.pi / 2 / self.N2) ** 2 * (self.H2**2 - (self.D - z) ** 2)
+
+    def _target_func_z_m(self, params: List[float]) -> float:
+        z_m, delta_u1, delta_u2 = params
+        func1 = (self.u1(z_m) - self.u2(z_m)) ** 2
+        func1 = (
+            quad(lambda delta_u1: self.u1(z) - delta_u1, 0.0, z_m)[0]
+            - self.N1 * self.sigma1
+        ) ** 2
+        func2 = (
+            quad(lambda delta_u2: self.u2(z) - delta_u2, z_m, self.D)[0]
+            - self.N2 * self.sigma2
+        ) ** 2
+
+        return func1 + func2 + func2
+
+    def optimize(self) -> Tuple[float, float, float]:
+        return minimize(self._target_func_z_m, [self.D / 2, 0.0, 0.0], method="BFGS").x
+
 
 if __name__ == "__main__":
-    m_p = MidPoint(180, 0.1, 20, 0.1)
-
-    print(m_p.calc(40))
+    m_p = MidPoint(200, 0.1, 100, 0.1)
 
     z, phi = m_p.calc(40)
 
