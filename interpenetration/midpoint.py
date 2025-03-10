@@ -89,24 +89,24 @@ class MidPoint:
             2.0 * N2 * sigma2,
         )[0]
 
-    def _target_func(self, z: float) -> float:
-        """Intent function for z_mean finding
+    # def _target_func(self, z: float) -> float:
+    #     """Intent function for z_mean finding
 
-        Args:
-            z (float): coordinate where u1(z)=u2(z)
+    #     Args:
+    #         z (float): coordinate where u1(z)=u2(z)
 
-        Returns:
-            float: target result (expect 0.0)
-        """
-        return (
-            z
-            * (
-                1.0
-                - (1.0 - self.N2 * self.sigma2 / (self.D - z))
-                * np.exp(-self.K1 * z**2 + self.K2 * (self.D - z) ** 2)
-            )
-            - self.N1 * self.sigma1
-        )
+    #     Returns:
+    #         float: target result (expect 0.0)
+    #     """
+    #     return (
+    #         z
+    #         * (
+    #             1.0
+    #             - (1.0 - self.N2 * self.sigma2 / (self.D - z))
+    #             * np.exp(-self.K1 * z**2 + self.K2 * (self.D - z) ** 2)
+    #         )
+    #         - self.N1 * self.sigma1
+    #     )
 
     def calc(self, D: float) -> Tuple[float, float]:
         """z_mean and phi_mean calculation
@@ -117,16 +117,30 @@ class MidPoint:
         Returns:
             Tuple[float, float]: z_mean and phi_mean values
         """
-        self.D = D
-        z_m = func_zeros(0.0, D - MINVAL, self._target_func)
+        self.D = D 
+        # delta_u2 = self.optimize()[2]
+        # print(delta_u1)
+        # print(delta_u2)
 
         if D > (self.H1 + self.H2):
             phi_m = 0.0
-        elif D <= (self.N1 * self.sigma1 + self.N1 * self.sigma1):
-            phi_m = 1.0
+            z_m = D/2
+        elif D <= (self.N1 * self.sigma1 + self.N2 * self.sigma2):
+            raise ValueError("D < N1*sigma1 + N2*sigma2")
         else:
-            phi_m = 1.0 - (1.0 - self.N1 * self.sigma1 / z_m) * np.exp(self.K1 * z_m**2)
+            try:
+                self.initial_guess = np.array([D*self.N1*self.sigma1/(self.N1*self.sigma1+self.N2*self.sigma2), 0.2, 0.2])
+                z_m = self.optimize()[0]
+            except:
+                self.initial_guess = np.array([D*self.N1*self.sigma1/(self.N1*self.sigma1+self.N2*self.sigma2), 1.0, 1.0])
+                z_m = self.optimize()[0]
+                
+            delta_u1 = self.optimize()[1]
+            phi_m = 1.0 - np.exp(- self.u1(z_m)-delta_u1)
         return (z_m, phi_m)
+    
+
+            
 
     def u1(self, z: np.ndarray) -> np.ndarray:
         return 1.5 * (np.pi / 2 / self.N1) ** 2 * (self.H1**2 - z**2)
@@ -135,26 +149,36 @@ class MidPoint:
         return 1.5 * (np.pi / 2 / self.N2) ** 2 * (self.H2**2 - (self.D - z) ** 2)
 
     def _target_func_z_m(self, params: List[float]) -> float:
-        z_m, delta_u1, delta_u2 = params
-        func1 = (self.u1(z_m) - self.u2(z_m)) ** 2
-        func1 = (
-            quad(lambda delta_u1: self.u1(z) - delta_u1, 0.0, z_m)[0]
+        z_m = params[0]
+        delta_u1 = params[1]
+        delta_u2 = params[2]
+        
+        if delta_u1 < 0.0:
+            delta_u1== 0.0
+        if delta_u2 < 0.0:
+            delta_u2== 0.0
+            
+        func1 = (self.u1(z_m)+delta_u1 - self.u2(z_m)-delta_u2) ** 2
+        func2 = (
+            quad(lambda z: 1-np.exp(-self.u1(z) - delta_u1), 0.0, z_m)[0]
             - self.N1 * self.sigma1
         ) ** 2
-        func2 = (
-            quad(lambda delta_u2: self.u2(z) - delta_u2, z_m, self.D)[0]
+    
+        func3 = (
+            quad(lambda z: 1-np.exp(-self.u2(z) - delta_u2), z_m, self.D)[0]
             - self.N2 * self.sigma2
         ) ** 2
-
-        return func1 + func2 + func2
+   
+        return func1 + func2 + func3
 
     def optimize(self) -> Tuple[float, float, float]:
-        return minimize(self._target_func_z_m, [self.D / 2, 0.0, 0.0], method="BFGS").x
+        return minimize(self._target_func_z_m, self.initial_guess, method="CG", options={"eps":np.array([1e-7, 1e-7, 1e-7])}).x
 
 
 if __name__ == "__main__":
-    m_p = MidPoint(200, 0.1, 100, 0.1)
+    m_p = MidPoint(20, 0.1, 180, 0.1)
 
-    z, phi = m_p.calc(40)
+    print(m_p.H1 + m_p.H2)
+    z, phi = m_p.calc(81)
 
-    print(pressure(phi))
+    print(z, phi)

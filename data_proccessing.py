@@ -12,12 +12,12 @@ def ndarray_decoder(obj):
 
 
 if __name__ == "__main__":
-    # for sigma1 in [0.1, 0.07, 0.05, 0.03, 0.01]:
-    # sigma2 = round(0.2 - sigma1, 2)
-    # N1 = N2 = 500
-    for N1 in [100]:
-        sigma2 = sigma1 = 0.01
-        N2 = 1000 - N1
+    for sigma1 in [0.1, 0.07, 0.05, 0.03, 0.01]:
+        sigma2 = round(0.2 - sigma1, 2)
+        N1 = N2 = 100
+    # for N1 in [100]:
+    #     sigma2 = sigma1 = 0.1
+    #     N2 = N1
         data = []
         file_path = f"data/N1_{N1}_N2_{N2}_sig1_{sigma1}_sig2_{sigma2}.msgpack"
 
